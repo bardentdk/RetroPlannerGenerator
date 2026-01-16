@@ -12,7 +12,7 @@
             color: #1e293b;
         }
 
-        /* HEADER */
+        /* --- HEADER --- */
         .header {
             margin-bottom: 25px;
             padding: 20px;
@@ -30,20 +30,20 @@
         .total-box { text-align: right; }
         .total-val { font-size: 22px; font-weight: 900; color: #4f46e5; }
 
-        /* DAY CARD CONTAINER */
+        /* --- DAY CARD --- */
         .day-card {
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            margin-bottom: 15px;
-            page-break-inside: avoid;
+            margin-bottom: 12px;
+            page-break-inside: avoid; /* Empêche la coupure au milieu d'une carte */
             overflow: hidden;
             box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
 
         .layout-table { width: 100%; border-collapse: collapse; }
         
-        /* COLONNE DATE (GAUCHE) */
+        /* 1. COLONNE DATE (GAUCHE) */
         .col-date {
             width: 80px;
             background-color: #f8fafc;
@@ -54,35 +54,44 @@
         .day-num { font-size: 24px; font-weight: 800; color: #334155; line-height: 1; display: block; }
         .day-name { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-top: 4px; display: block;}
 
-        /* COLONNE CONTENU (CENTRE) */
+        /* 2. COLONNE CONTENU (CENTRE) */
         .col-content { padding: 0; vertical-align: top; }
 
         .session-row {
-            padding: 12px 15px;
+            padding: 10px 15px;
             border-bottom: 1px dashed #e2e8f0;
+            height: 35px; /* Hauteur fixe pour alignement */
         }
         .session-row:last-child { border-bottom: none; }
 
         .time-badge {
             font-size: 9px; font-weight: bold; text-transform: uppercase;
-            padding: 2px 6px; border-radius: 4px; margin-right: 8px;
-            display: inline-block; width: 55px; text-align: center;
+            padding: 2px 0; border-radius: 4px; margin-right: 8px;
+            display: inline-block; width: 50px; text-align: center;
         }
-        .bg-matin { background: #fffbeb; color: #b45309; }
-        .bg-aprem { background: #eff6ff; color: #1d4ed8; }
+        .bg-matin { background: #fffbeb; color: #b45309; border: 1px solid #fcd34d; }
+        .bg-aprem { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 
-        .module-text { font-size: 12px; font-weight: bold; color: #0f172a; }
-        .instructor-text { font-size: 10px; color: #64748b; font-style: italic; display: block; margin-top: 3px; margin-left: 75px; }
+        .module-text { font-size: 11px; font-weight: bold; color: #0f172a; }
+        .instructor-text { font-size: 9px; color: #64748b; font-style: italic; display: block; margin-top: 2px; margin-left: 62px; }
 
-        /* COLONNE STATUT (DROITE) */
+        /* 3. COLONNE STATUT (DROITE) */
         .col-status {
             width: 90px;
-            vertical-align: middle;
+            vertical-align: top; /* Important pour aligner avec les lignes */
             text-align: center;
             border-left: 1px solid #e2e8f0;
             background-color: #fafafa;
-            padding: 0 5px;
+            padding: 0;
         }
+
+        .status-row {
+            height: 35px; /* Même hauteur que session-row */
+            padding: 10px 5px;
+            border-bottom: 1px dashed #e2e8f0;
+            display: block;
+        }
+        .status-row:last-child { border-bottom: none; }
 
         .status-pill {
             display: inline-block;
@@ -92,11 +101,11 @@
             font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
-            margin: 4px 0;
             text-align: center;
         }
         .pill-present { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .pill-absent { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .pill-empty { color: #cbd5e1; font-size: 14px; }
         
         .footer { position: fixed; bottom: 0.5cm; width: 100%; text-align: center; font-size: 9px; color: #cbd5e1; }
     </style>
@@ -105,7 +114,8 @@
 
     <div class="header">
         <div class="title">Planning de Formation</div>
-        <div class="subtitle">{{ $trainingName }}</div>
+        <!-- <div class="subtitle">{{ $trainingName }}</div> -->
+        <div class="subtitle">Mon Passeport pour l'Insertion</div>
         
         <table class="header-infos">
             <tr>
@@ -159,36 +169,39 @@
                     </td>
 
                     <td class="col-status">
-                        @if($periods['morning'])
-                            @if($periods['morning']->is_present)
-                                <div class="status-pill pill-present">Présent</div>
+                        
+                        <div class="status-row">
+                            @if($periods['morning'])
+                                @if($periods['morning']->is_present)
+                                    <div class="status-pill pill-present">Présent</div>
+                                @else
+                                    <div class="status-pill pill-absent">Absent</div>
+                                @endif
                             @else
-                                <div class="status-pill pill-absent">Absent</div>
+                                <div class="pill-empty">-</div>
                             @endif
-                        @else
-                            <div style="font-size:8px; color:#cbd5e1;">-</div>
-                        @endif
+                        </div>
 
-                        <div style="height:1px; background:#e2e8f0; margin: 2px 10px;"></div>
-
-                        @if($periods['afternoon'])
-                            @if($periods['afternoon']->is_present)
-                                <div class="status-pill pill-present">Présent</div>
+                        <div class="status-row">
+                            @if($periods['afternoon'])
+                                @if($periods['afternoon']->is_present)
+                                    <div class="status-pill pill-present">Présent</div>
+                                @else
+                                    <div class="status-pill pill-absent">Absent</div>
+                                @endif
                             @else
-                                <div class="status-pill pill-absent">Absent</div>
+                                <div class="pill-empty">-</div>
                             @endif
-                        @else
-                            <div style="font-size:8px; color:#cbd5e1;">-</div>
-                        @endif
+                        </div>
                     </td>
                 </tr>
             </table>
         </div>
     @endforeach
 
-    <div class="footer">
+    <!-- <div class="footer">
         Document généré le {{ date('d/m/Y') }}
-    </div>
+    </div> -->
 
 </body>
 </html>

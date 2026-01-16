@@ -53,6 +53,85 @@ class ScheduleController extends Controller
     }
 
     // --- PDF EXPORT (Modifié pour exporter SEULEMENT l'étudiant sélectionné) ---
+    // public function exportPdf(Request $request)
+    // {
+    //     $targetStudent = $request->input('student');
+
+    //     if (!$targetStudent) {
+    //         return redirect()->back()->withErrors(['file' => 'Veuillez sélectionner un apprenant.']);
+    //     }
+
+    //     // 1. On récupère d'abord tous les fichiers sources liés à cet étudiant
+    //     // (Au cas où il y aurait plusieurs PDFs)
+    //     $sourceFiles = TrainingSlot::where('student_name', $targetStudent)
+    //         ->pluck('source_file')
+    //         ->unique();
+
+    //     if ($sourceFiles->isEmpty()) {
+    //         return redirect()->back()->withErrors(['file' => 'Aucune donnée pour cet apprenant.']);
+    //     }
+
+    //     // 2. CONSTITUTION DU MASTER PLANNING (Le programme théorique)
+    //     // On prend TOUS les créneaux de ces fichiers, peu importe l'élève.
+    //     // On groupe par Date et Période pour avoir 1 seule ligne par créneau théorique.
+    //     $masterSlots = TrainingSlot::whereIn('source_file', $sourceFiles)
+    //         ->select('date', 'period', 'module_name', 'instructor_name')
+    //         ->distinct() // Évite les doublons si 15 élèves ont la même ligne
+    //         ->orderBy('date')
+    //         ->get();
+
+    //     // 3. RÉCUPÉRATION DES PRÉSENCES DE L'ÉLÈVE
+    //     $studentSlots = TrainingSlot::where('student_name', $targetStudent)
+    //         ->get()
+    //         // On crée une clé unique "YYYY-MM-DD_period" pour retrouver facilement
+    //         ->keyBy(function($item) {
+    //             return $item->date->format('Y-m-d') . '_' . $item->period;
+    //         });
+
+    //     // 4. FUSION (Merge)
+    //     // On parcourt le Master Planning et on injecte les données de l'élève
+    //     $finalSchedule = [];
+    //     $totalHeuresPrevues = 0;
+
+    //     foreach ($masterSlots as $slot) {
+    //         $dateKey = $slot->date->format('Y-m-d');
+    //         $lookupKey = $dateKey . '_' . $slot->period;
+
+    //         // Est-ce que l'élève a une ligne pour ce créneau ?
+    //         $studentEntry = $studentSlots->get($lookupKey);
+
+    //         // On construit l'objet pour la vue
+    //         if (!isset($finalSchedule[$dateKey])) {
+    //             $finalSchedule[$dateKey] = ['morning' => null, 'afternoon' => null];
+    //         }
+
+    //         // On prépare les données du créneau
+    //         $slotData = [
+    //             'module_name' => $slot->module_name,
+    //             'instructor_name' => $slot->instructor_name,
+    //             // Si l'élève a une entrée, on prend son statut, sinon "null" (considéré comme absent/non noté)
+    //             'is_present' => $studentEntry ? $studentEntry->is_present : false,
+    //             'has_data' => $studentEntry ? true : false // Pour savoir si on a une info ou pas
+    //         ];
+
+    //         $finalSchedule[$dateKey][$slot->period] = (object) $slotData;
+            
+    //         // On cumule 3.5h pour chaque créneau théorique existant
+    //         $totalHeuresPrevues += 3.5; 
+    //     }
+
+    //     $trainingName = "TP Gestionnaire de Paie"; // Ou dynamique selon le module le plus fréquent
+    //     $filename = 'Planning_' . \Illuminate\Support\Str::slug($targetStudent) . '.pdf';
+
+    //     $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.modern_schedule', [
+    //         'schedule' => $finalSchedule, // On passe notre nouveau tableau fusionné
+    //         'studentName' => $targetStudent,
+    //         'trainingName' => $trainingName,
+    //         'totalHeures' => $totalHeuresPrevues // On passe le total théorique
+    //     ])->setPaper('a4', 'portrait');
+        
+    //     return $pdf->download($filename);
+    // }
     public function exportPdf(Request $request)
     {
         $targetStudent = $request->input('student');
@@ -61,35 +140,36 @@ class ScheduleController extends Controller
             return redirect()->back()->withErrors(['file' => 'Veuillez sélectionner un apprenant.']);
         }
 
-        // 1. On récupère d'abord tous les fichiers sources liés à cet étudiant
-        // (Au cas où il y aurait plusieurs PDFs)
-        $sourceFiles = TrainingSlot::where('student_name', $targetStudent)
-            ->pluck('source_file')
-            ->unique();
+        // --- CORRECTION MAJEURE ICI ---
+        // On ne filtre plus par "les fichiers de l'élève". 
+        // On considère que toute la base de données contient le planning de LA formation en cours.
+        
+        // 2. MASTER PLANNING (Global)
+        // On récupère TOUTES les dates et périodes uniques enregistrées en base.
+        // Cela inclut les jours où l'élève cible était totalement absent.
+        $masterSlots = TrainingSlot::select('date', 'period', 'module_name', 'instructor_name')
+            ->whereNotNull('date') // Sécurité
+            ->orderBy('date')
+            ->get()
+            // L'astuce : On groupe par Date+Période pour dédoublonner
+            // (Car le 12 mai, 15 élèves ont généré 15 lignes identiques pour le module)
+            ->unique(function ($item) {
+                return $item->date->format('Y-m-d') . $item->period;
+            });
 
-        if ($sourceFiles->isEmpty()) {
-            return redirect()->back()->withErrors(['file' => 'Aucune donnée pour cet apprenant.']);
+        if ($masterSlots->isEmpty()) {
+            return redirect()->back()->withErrors(['file' => 'Aucune donnée de planning trouvée.']);
         }
 
-        // 2. CONSTITUTION DU MASTER PLANNING (Le programme théorique)
-        // On prend TOUS les créneaux de ces fichiers, peu importe l'élève.
-        // On groupe par Date et Période pour avoir 1 seule ligne par créneau théorique.
-        $masterSlots = TrainingSlot::whereIn('source_file', $sourceFiles)
-            ->select('date', 'period', 'module_name', 'instructor_name')
-            ->distinct() // Évite les doublons si 15 élèves ont la même ligne
-            ->orderBy('date')
-            ->get();
-
-        // 3. RÉCUPÉRATION DES PRÉSENCES DE L'ÉLÈVE
+        // 3. PRÉSENCES DE L'ÉLÈVE CIBLE
+        // Là on regarde spécifiquement ce que l'élève a fait
         $studentSlots = TrainingSlot::where('student_name', $targetStudent)
             ->get()
-            // On crée une clé unique "YYYY-MM-DD_period" pour retrouver facilement
             ->keyBy(function($item) {
                 return $item->date->format('Y-m-d') . '_' . $item->period;
             });
 
-        // 4. FUSION (Merge)
-        // On parcourt le Master Planning et on injecte les données de l'élève
+        // 4. FUSION
         $finalSchedule = [];
         $totalHeuresPrevues = 0;
 
@@ -97,42 +177,39 @@ class ScheduleController extends Controller
             $dateKey = $slot->date->format('Y-m-d');
             $lookupKey = $dateKey . '_' . $slot->period;
 
-            // Est-ce que l'élève a une ligne pour ce créneau ?
             $studentEntry = $studentSlots->get($lookupKey);
 
-            // On construit l'objet pour la vue
             if (!isset($finalSchedule[$dateKey])) {
                 $finalSchedule[$dateKey] = ['morning' => null, 'afternoon' => null];
             }
 
-            // On prépare les données du créneau
+            // Si l'élève n'a pas de ligne pour cette date du Master Planning, 
+            // c'est qu'il était absent (ou pas détecté), donc is_present = false.
             $slotData = [
                 'module_name' => $slot->module_name,
                 'instructor_name' => $slot->instructor_name,
-                // Si l'élève a une entrée, on prend son statut, sinon "null" (considéré comme absent/non noté)
                 'is_present' => $studentEntry ? $studentEntry->is_present : false,
-                'has_data' => $studentEntry ? true : false // Pour savoir si on a une info ou pas
+                'status_known' => $studentEntry ? true : false
             ];
 
             $finalSchedule[$dateKey][$slot->period] = (object) $slotData;
             
-            // On cumule 3.5h pour chaque créneau théorique existant
+            // On ajoute 3.5h au planning théorique
             $totalHeuresPrevues += 3.5; 
         }
 
-        $trainingName = "TP Gestionnaire de Paie"; // Ou dynamique selon le module le plus fréquent
+        $trainingName = "Planning de Formation"; // Peut être dynamique si besoin
         $filename = 'Planning_' . \Illuminate\Support\Str::slug($targetStudent) . '.pdf';
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.modern_schedule', [
-            'schedule' => $finalSchedule, // On passe notre nouveau tableau fusionné
+            'schedule' => $finalSchedule,
             'studentName' => $targetStudent,
             'trainingName' => $trainingName,
-            'totalHeures' => $totalHeuresPrevues // On passe le total théorique
+            'totalHeures' => $totalHeuresPrevues
         ])->setPaper('a4', 'portrait');
         
         return $pdf->download($filename);
     }
-
     // ... (upload, status, update, destroy, reset, forceUtf8 restent identiques) ...
     public function upload(Request $request) {
         $request->validate(['file' => 'required|mimes:pdf|max:50000']);
