@@ -132,6 +132,7 @@ class ScheduleController extends Controller
         
     //     return $pdf->download($filename);
     // }
+
     public function exportPdf(Request $request)
     {
         $targetStudent = $request->input('student');
@@ -140,65 +141,51 @@ class ScheduleController extends Controller
             return redirect()->back()->withErrors(['file' => 'Veuillez sélectionner un apprenant.']);
         }
 
-        // --- CORRECTION MAJEURE ICI ---
-        // On ne filtre plus par "les fichiers de l'élève". 
-        // On considère que toute la base de données contient le planning de LA formation en cours.
-        
-        // 2. MASTER PLANNING (Global)
-        // On récupère TOUTES les dates et périodes uniques enregistrées en base.
-        // Cela inclut les jours où l'élève cible était totalement absent.
+        // 1. On récupère les fichiers sources
+        $sourceFiles = TrainingSlot::where('student_name', $targetStudent)
+            ->pluck('source_file')
+            ->unique();
+
+        if ($sourceFiles->isEmpty()) {
+            return redirect()->back()->withErrors(['file' => 'Aucune donnée pour cet apprenant.']);
+        }
+
+        // 2. MASTER PLANNING (Tous les créneaux théoriques existants en BDD)
         $masterSlots = TrainingSlot::select('date', 'period', 'module_name', 'instructor_name')
-            ->whereNotNull('date') // Sécurité
+            ->whereNotNull('date')
             ->orderBy('date')
             ->get()
-            // L'astuce : On groupe par Date+Période pour dédoublonner
-            // (Car le 12 mai, 15 élèves ont généré 15 lignes identiques pour le module)
+            // On dédoublonne pour avoir 1 ligne unique par créneau horaire
             ->unique(function ($item) {
                 return $item->date->format('Y-m-d') . $item->period;
             });
 
-        if ($masterSlots->isEmpty()) {
-            return redirect()->back()->withErrors(['file' => 'Aucune donnée de planning trouvée.']);
-        }
-
-        // 3. PRÉSENCES DE L'ÉLÈVE CIBLE
-        // Là on regarde spécifiquement ce que l'élève a fait
-        $studentSlots = TrainingSlot::where('student_name', $targetStudent)
-            ->get()
-            ->keyBy(function($item) {
-                return $item->date->format('Y-m-d') . '_' . $item->period;
-            });
-
-        // 4. FUSION
+        // 3. FUSION & CALCUL DU TOTAL THÉORIQUE
         $finalSchedule = [];
         $totalHeuresPrevues = 0;
 
         foreach ($masterSlots as $slot) {
             $dateKey = $slot->date->format('Y-m-d');
-            $lookupKey = $dateKey . '_' . $slot->period;
-
-            $studentEntry = $studentSlots->get($lookupKey);
 
             if (!isset($finalSchedule[$dateKey])) {
                 $finalSchedule[$dateKey] = ['morning' => null, 'afternoon' => null];
             }
 
-            // Si l'élève n'a pas de ligne pour cette date du Master Planning, 
-            // c'est qu'il était absent (ou pas détecté), donc is_present = false.
+            // On prépare juste les infos du cours (plus besoin de is_present)
             $slotData = [
                 'module_name' => $slot->module_name,
                 'instructor_name' => $slot->instructor_name,
-                'is_present' => $studentEntry ? $studentEntry->is_present : false,
-                'status_known' => $studentEntry ? true : false
             ];
 
             $finalSchedule[$dateKey][$slot->period] = (object) $slotData;
             
-            // On ajoute 3.5h au planning théorique
+            // --- LE CALCUL EST ICI ---
+            // On ajoute 3.5h pour chaque créneau existant dans le planning,
+            // peu importe si l'élève a signé ou non.
             $totalHeuresPrevues += 3.5; 
         }
 
-        $trainingName = "Planning de Formation"; // Peut être dynamique si besoin
+        $trainingName = "Calendrier de Formation";
         $filename = 'Planning_' . \Illuminate\Support\Str::slug($targetStudent) . '.pdf';
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.modern_schedule', [
@@ -210,6 +197,7 @@ class ScheduleController extends Controller
         
         return $pdf->download($filename);
     }
+    
     // ... (upload, status, update, destroy, reset, forceUtf8 restent identiques) ...
     public function upload(Request $request) {
         $request->validate(['file' => 'required|mimes:pdf|max:50000']);

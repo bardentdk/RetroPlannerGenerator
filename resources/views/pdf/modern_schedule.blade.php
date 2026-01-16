@@ -36,16 +36,16 @@
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             margin-bottom: 12px;
-            page-break-inside: avoid; /* Empêche la coupure au milieu d'une carte */
+            page-break-inside: avoid;
             overflow: hidden;
             box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
 
         .layout-table { width: 100%; border-collapse: collapse; }
         
-        /* 1. COLONNE DATE (GAUCHE) */
+        /* 1. COLONNE DATE (GAUCHE) - Largeur fixe */
         .col-date {
-            width: 80px;
+            width: 90px;
             background-color: #f8fafc;
             text-align: center;
             vertical-align: middle;
@@ -54,78 +54,52 @@
         .day-num { font-size: 24px; font-weight: 800; color: #334155; line-height: 1; display: block; }
         .day-name { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-top: 4px; display: block;}
 
-        /* 2. COLONNE CONTENU (CENTRE) */
+        /* 2. COLONNE CONTENU (CENTRE) - Prend tout le reste */
         .col-content { padding: 0; vertical-align: top; }
 
         .session-row {
-            padding: 10px 15px;
+            padding: 12px 20px; /* Plus d'espace interne */
             border-bottom: 1px dashed #e2e8f0;
-            height: 35px; /* Hauteur fixe pour alignement */
+            height: auto;
         }
         .session-row:last-child { border-bottom: none; }
 
         .time-badge {
             font-size: 9px; font-weight: bold; text-transform: uppercase;
-            padding: 2px 0; border-radius: 4px; margin-right: 8px;
-            display: inline-block; width: 50px; text-align: center;
+            padding: 3px 0; border-radius: 4px; margin-right: 12px;
+            display: inline-block; width: 60px; text-align: center;
+            vertical-align: middle;
         }
         .bg-matin { background: #fffbeb; color: #b45309; border: 1px solid #fcd34d; }
         .bg-aprem { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 
-        .module-text { font-size: 11px; font-weight: bold; color: #0f172a; }
-        .instructor-text { font-size: 9px; color: #64748b; font-style: italic; display: block; margin-top: 2px; margin-left: 62px; }
-
-        /* 3. COLONNE STATUT (DROITE) */
-        .col-status {
-            width: 90px;
-            vertical-align: top; /* Important pour aligner avec les lignes */
-            text-align: center;
-            border-left: 1px solid #e2e8f0;
-            background-color: #fafafa;
-            padding: 0;
+        .module-text { font-size: 13px; font-weight: bold; color: #0f172a; vertical-align: middle; }
+        .instructor-text { 
+            font-size: 10px; color: #64748b; font-style: italic; 
+            display: block; margin-top: 4px; margin-left: 76px; /* Aligné sous le texte du module */
         }
 
-        .status-row {
-            height: 35px; /* Même hauteur que session-row */
-            padding: 10px 5px;
-            border-bottom: 1px dashed #e2e8f0;
-            display: block;
-        }
-        .status-row:last-child { border-bottom: none; }
-
-        .status-pill {
-            display: inline-block;
-            padding: 3px 0;
-            width: 100%;
-            border-radius: 4px;
-            font-size: 9px;
-            font-weight: bold;
-            text-transform: uppercase;
-            text-align: center;
-        }
-        .pill-present { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .pill-absent { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-        .pill-empty { color: #cbd5e1; font-size: 14px; }
-        
         .footer { position: fixed; bottom: 0.5cm; width: 100%; text-align: center; font-size: 9px; color: #cbd5e1; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="title">Planning de Formation</div>
+        <div class="title">Programme Prévisionnel</div>
         <!-- <div class="subtitle">{{ $trainingName }}</div> -->
-        <div class="subtitle">Mon Passeport pour l'Insertion</div>
+        <div class="subtitle">
+            Mon Passeport pour l'Insertion
+        </div>
         
         <table class="header-infos">
             <tr>
                 <td>
-                    <div class="info-label">Apprenant</div>
+                    <div class="info-label">Apprenant concerné</div>
                     <div class="info-value">{{ $studentName }}</div>
                 </td>
                 <td class="total-box">
                     <div class="total-val">{{ $totalHeures }}h</div>
-                    <div class="info-label">Volume Horaire Prévu</div>
+                    <div class="info-label">Volume Horaire Total</div>
                 </td>
             </tr>
         </table>
@@ -150,47 +124,20 @@
                         <div class="session-row">
                             <span class="time-badge bg-matin">Matin</span>
                             @if($periods['morning'])
-                                <span class="module-text">{{ $periods['morning']->module_name ?? 'Formation' }}</span>
-                                <span class="instructor-text">Formateur : {{ $periods['morning']->instructor_name ?? 'Non précisé' }}</span>
+                                <span class="module-text">{{ $periods['morning']->module_name ?? 'Module de formation' }}</span>
+                                <span class="instructor-text">Intervenant : {{ $periods['morning']->instructor_name ?? 'Non précisé' }}</span>
                             @else
-                                <span class="module-text" style="color:#cbd5e1; font-style:italic;">- Aucun cours prévu -</span>
+                                <span class="module-text" style="color:#cbd5e1; font-style:italic;">-</span>
                             @endif
                         </div>
 
                         <div class="session-row">
                             <span class="time-badge bg-aprem">Ap-Midi</span>
                             @if($periods['afternoon'])
-                                <span class="module-text">{{ $periods['afternoon']->module_name ?? 'Formation' }}</span>
-                                <span class="instructor-text">Formateur : {{ $periods['afternoon']->instructor_name ?? 'Non précisé' }}</span>
+                                <span class="module-text">{{ $periods['afternoon']->module_name ?? 'Module de formation' }}</span>
+                                <span class="instructor-text">Intervenant : {{ $periods['afternoon']->instructor_name ?? 'Non précisé' }}</span>
                             @else
-                                <span class="module-text" style="color:#cbd5e1; font-style:italic;">- Aucun cours prévu -</span>
-                            @endif
-                        </div>
-                    </td>
-
-                    <td class="col-status">
-                        
-                        <div class="status-row">
-                            @if($periods['morning'])
-                                @if($periods['morning']->is_present)
-                                    <div class="status-pill pill-present">Présent</div>
-                                @else
-                                    <div class="status-pill pill-absent">Absent</div>
-                                @endif
-                            @else
-                                <div class="pill-empty">-</div>
-                            @endif
-                        </div>
-
-                        <div class="status-row">
-                            @if($periods['afternoon'])
-                                @if($periods['afternoon']->is_present)
-                                    <div class="status-pill pill-present">Présent</div>
-                                @else
-                                    <div class="status-pill pill-absent">Absent</div>
-                                @endif
-                            @else
-                                <div class="pill-empty">-</div>
+                                <span class="module-text" style="color:#cbd5e1; font-style:italic;">-</span>
                             @endif
                         </div>
                     </td>
@@ -199,9 +146,9 @@
         </div>
     @endforeach
 
-    <!-- <div class="footer">
-        Document généré le {{ date('d/m/Y') }}
-    </div> -->
+    <div class="footer">
+        <!-- Document généré le {{ date('d/m/Y') }} -->
+    </div>
 
 </body>
 </html>
