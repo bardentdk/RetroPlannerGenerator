@@ -7,149 +7,192 @@
         @page { margin: 0cm; }
         body {
             font-family: 'Helvetica', sans-serif;
-            background-color: #f1f5f9; /* Fond gris très clair */
+            background-color: #f8fafc;
             margin: 1cm;
             color: #1e293b;
         }
 
         /* HEADER */
         .header {
-            margin-bottom: 30px;
-            border-bottom: 3px solid #4f46e5; /* Indigo */
-            padding-bottom: 20px;
-            background: #fff;
+            margin-bottom: 25px;
             padding: 20px;
+            background: #fff;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-left: 6px solid #4f46e5; /* Indigo */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .title { font-size: 24px; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: 1px; }
-        .subtitle { font-size: 14px; color: #64748b; margin-top: 5px; }
-        
-        .student-badge {
-            background-color: #eef2ff;
-            color: #4f46e5;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 14px;
-            display: inline-block;
-            margin-top: 10px;
-            border: 1px solid #c7d2fe;
-        }
+        .title { font-size: 20px; font-weight: 900; color: #1e293b; text-transform: uppercase; }
+        .subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .student-name { font-size: 14px; font-weight: bold; color: #4f46e5; margin-top: 8px; }
 
-        /* CARD STYLE ROW */
-        .card-row {
+        /* DAY CARD CONTAINER */
+        .day-card {
             background-color: #ffffff;
-            border-radius: 10px;
-            margin-bottom: 12px;
-            padding: 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            page-break-inside: avoid; /* Évite de couper une carte en deux */
-            border-left: 5px solid #cbd5e1; /* Bordure par défaut */
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            page-break-inside: avoid; /* Empêche de couper la carte */
+            overflow: hidden;
         }
 
-        .card-table { width: 100%; border-collapse: collapse; }
-        .card-table td { padding: 15px; vertical-align: middle; }
-
-        /* COULEURS BORDURE GAUCHE SELON PÉRIODE */
-        .border-morning { border-left-color: #f59e0b !important; } /* Orange Matin */
-        .border-afternoon { border-left-color: #3b82f6 !important; } /* Bleu Aprèm */
-
-        /* DATE BOX */
-        .date-box {
-            text-align: center;
+        /* STRUCTURE TABLEAU */
+        .layout-table { width: 100%; border-collapse: collapse; }
+        
+        /* COLONNE DATE (GAUCHE) */
+        .col-date {
             width: 80px;
-            border-right: 1px solid #f1f5f9;
+            background-color: #f1f5f9;
+            text-align: center;
+            vertical-align: middle;
+            border-right: 1px solid #e2e8f0;
         }
-        .day-num { font-size: 24px; font-weight: 800; color: #334155; line-height: 1; }
-        .day-month { font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: bold; }
+        .day-num { font-size: 26px; font-weight: 800; color: #334155; line-height: 1; display: block; }
+        .day-name { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-top: 4px; display: block;}
 
-        /* CONTENT BOX */
-        .content-box { padding-left: 20px !important; }
-        .period-badge {
-            font-size: 9px; 
-            font-weight: bold; 
-            text-transform: uppercase; 
-            padding: 3px 8px; 
-            border-radius: 4px;
-            margin-bottom: 6px;
-            display: inline-block;
+        /* COLONNE CONTENU (CENTRE) */
+        .col-content { padding: 0; vertical-align: top; }
+
+        /* LIGNE MATIN / APREM */
+        .session-row {
+            padding: 10px 15px;
+            border-bottom: 1px dashed #e2e8f0;
         }
-        .bg-morning { background: #fffbeb; color: #b45309; }
-        .bg-afternoon { background: #eff6ff; color: #1d4ed8; }
+        .session-row:last-child { border-bottom: none; }
 
-        .module-title { font-size: 14px; font-weight: bold; color: #0f172a; margin-bottom: 4px; }
-        .instructor { font-size: 11px; color: #64748b; font-style: italic; }
-        .instructor span { font-weight: bold; color: #475569; }
-
-        /* STATUS BOX */
-        .status-box { text-align: right; width: 100px; }
-        .status-pill {
-            padding: 6px 12px;
-            border-radius: 99px;
-            font-size: 10px;
+        .time-label {
+            font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            display: inline-block;
+            width: 60px;
         }
-        .present { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .absent { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        
+        .module-text { font-size: 12px; font-weight: bold; color: #0f172a; display: inline-block;}
+        .instructor-text { font-size: 10px; color: #64748b; font-style: italic; display: block; margin-top: 2px; margin-left: 64px; }
 
-        .footer { text-align: center; color: #94a3b8; font-size: 10px; margin-top: 30px; }
+        /* COLONNE STATUT (DROITE) */
+        .col-status {
+            width: 100px;
+            vertical-align: middle;
+            text-align: center;
+            border-left: 1px solid #e2e8f0;
+            background-color: #fafafa;
+        }
+
+        /* BADGES */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 2px 0;
+            width: 70px; /* Taille fixe pour alignement */
+            text-align: center;
+        }
+        .badge-present { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .badge-absent { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .badge-none { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+
+        .daily-total {
+            margin-top: 8px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #6366f1;
+        }
+
+        .footer { text-align: center; font-size: 9px; color: #cbd5e1; margin-top: 20px; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="title">Programme de Formation</div>
-        <div class="subtitle">Mon Passeport pour l'Insertion</div>
+        <div class="title">Planning de Formation</div>
         <!-- <div class="subtitle">{{ $trainingName }}</div> -->
-        <div class="student-badge">👤 {{ $studentName }}</div>
+        <div class="subtitle">Mon Passeport pour l'Insertion</div>
+        <div class="student-name">Apprenant : {{ $studentName }}</div>
     </div>
 
     @foreach($days as $date => $slots)
-        @foreach($slots as $slot)
-            @php
-                $carbonDate = \Carbon\Carbon::parse($slot->date);
-                $isMorning = $slot->period === 'morning';
-                $borderColor = $isMorning ? 'border-morning' : 'border-afternoon';
-                $periodLabel = $isMorning ? '08:30 - 12:00' : '13:00 - 16:30';
-                $periodClass = $isMorning ? 'bg-morning' : 'bg-afternoon';
-            @endphp
+        @php
+            $carbonDate = \Carbon\Carbon::parse($date);
+            // On récupère les objets spécifiques Matin et Aprèm
+            $morning = $slots->firstWhere('period', 'morning');
+            $afternoon = $slots->firstWhere('period', 'afternoon');
 
-            <div class="card-row {{ $borderColor }}">
-                <table class="card-table">
-                    <tr>
-                        <td class="date-box">
-                            <div class="day-num">{{ $carbonDate->format('d') }}</div>
-                            <div class="day-month">{{ $carbonDate->locale('fr')->isoFormat('MMM') }}</div>
-                            <div style="font-size:9px; color:#cbd5e1;">{{ $carbonDate->format('Y') }}</div>
-                        </td>
+            // Calcul des heures journalières
+            $dailyHours = 0;
+            if($morning && $morning->is_present) $dailyHours += 3.5;
+            if($afternoon && $afternoon->is_present) $dailyHours += 3.5;
+        @endphp
 
-                        <td class="content-box">
-                            <span class="period-badge {{ $periodClass }}">{{ $periodLabel }}</span>
-                            <div class="module-title">
-                                {{ $slot->module_name ?? 'Module de formation' }}
-                            </div>
-                            <div class="instructor">
-                                Intervenant : <span>{{ $slot->instructor_name ?? 'Non spécifié' }}</span>
-                            </div>
-                        </td>
+        <div class="day-card">
+            <table class="layout-table">
+                <tr>
+                    <td class="col-date">
+                        <span class="day-num">{{ $carbonDate->format('d') }}</span>
+                        <span class="day-name">{{ $carbonDate->locale('fr')->isoFormat('MMM') }}</span>
+                    </td>
 
-                        <td class="status-box">
-                            @if($slot->is_present)
-                                <span class="status-pill present">Présent</span>
+                    <td class="col-content">
+                        
+                        <div class="session-row">
+                            <span class="time-label">Matin</span>
+                            @if($morning)
+                                <span class="module-text">{{ $morning->module_name ?? 'Module générique' }}</span>
+                                <span class="instructor-text">Intervenant : {{ $morning->instructor_name ?? 'Non précisé' }}</span>
                             @else
-                                <span class="status-pill absent">Absent</span>
+                                <span class="module-text" style="color:#cbd5e1;">- Pas de session -</span>
                             @endif
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        @endforeach
-    @endforeach
+                        </div>
 
-    <!-- <div class="footer">
-        Document généré le {{ date('d/m/Y') }} • PlanningGen Solutions
+                        <div class="session-row">
+                            <span class="time-label">Apr-Midi</span>
+                            @if($afternoon)
+                                <span class="module-text">{{ $afternoon->module_name ?? 'Module générique' }}</span>
+                                <span class="instructor-text">Intervenant : {{ $afternoon->instructor_name ?? 'Non précisé' }}</span>
+                            @else
+                                <span class="module-text" style="color:#cbd5e1;">- Pas de session -</span>
+                            @endif
+                        </div>
+
+                    </td>
+
+                    <td class="col-status">
+                        @if($morning)
+                            @if($morning->is_present)
+                                <div class="badge badge-present">Mat : Présent</div>
+                            @else
+                                <div class="badge badge-absent">Mat : Absent</div>
+                            @endif
+                        @else
+                             <div class="badge badge-none">Mat : N/A</div>
+                        @endif
+
+                        @if($afternoon)
+                            @if($afternoon->is_present)
+                                <div class="badge badge-present">PM : Présent</div>
+                            @else
+                                <div class="badge badge-absent">PM : Absent</div>
+                            @endif
+                        @else
+                             <div class="badge badge-none">PM : N/A</div>
+                        @endif
+
+                        <div class="daily-total">
+                            Total : {{ $dailyHours }}h
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    @endforeach
+<!-- 
+    <div class="footer">
+        Document généré le {{ date('d/m/Y') }}
     </div> -->
 
 </body>

@@ -51,15 +51,23 @@ class AnalyzePageJob implements ShouldQueue
                         $period = strtolower($data['period'] ?? 'morning');
                         if (!in_array($period, ['morning', 'afternoon'])) $period = 'morning';
 
-                        TrainingSlot::create([
-                            'date' => $data['date'],
-                            'period' => $period,
-                            'is_present' => $data['is_signed'] ?? false,
-                            'student_name' => $studentName,
-                            'module_name' => $moduleName,
-                            'instructor_name' => $instructorName,
-                            'source_file' => $this->filename,
-                        ]);
+                        // --- CORRECTION ANTI-DOUBLONS ---
+                        // On utilise updateOrCreate pour garantir 1 seule ligne par créneau
+                        TrainingSlot::updateOrCreate(
+                            [
+                                // 1. Les critères d'unicité (La "Clé")
+                                'student_name' => $studentName,
+                                'date' => $data['date'],
+                                'period' => $period,
+                            ],
+                            [
+                                // 2. Les valeurs à mettre à jour ou insérer
+                                'is_present' => $data['is_signed'] ?? false,
+                                'module_name' => $moduleName,
+                                'instructor_name' => $instructorName,
+                                'source_file' => $this->filename,
+                            ]
+                        );
                     }
                 }
                 // Suppression de l'image temporaire après analyse
