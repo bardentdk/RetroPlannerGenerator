@@ -61,26 +61,74 @@ class ScheduleController extends Controller
             return redirect()->back()->withErrors(['file' => 'Veuillez sélectionner un apprenant.']);
         }
 
-        $days = TrainingSlot::where('student_name', $targetStudent)
-            ->whereNotNull('date')
+        // 1. On récupère d'abord tous les fichiers sources liés à cet étudiant
+        // (Au cas où il y aurait plusieurs PDFs)
+        $sourceFiles = TrainingSlot::where('student_name', $targetStudent)
+            ->pluck('source_file')
+            ->unique();
+
+        if ($sourceFiles->isEmpty()) {
+            return redirect()->back()->withErrors(['file' => 'Aucune donnée pour cet apprenant.']);
+        }
+
+        // 2. CONSTITUTION DU MASTER PLANNING (Le programme théorique)
+        // On prend TOUS les créneaux de ces fichiers, peu importe l'élève.
+        // On groupe par Date et Période pour avoir 1 seule ligne par créneau théorique.
+        $masterSlots = TrainingSlot::whereIn('source_file', $sourceFiles)
+            ->select('date', 'period', 'module_name', 'instructor_name')
+            ->distinct() // Évite les doublons si 15 élèves ont la même ligne
             ->orderBy('date')
+            ->get();
+
+        // 3. RÉCUPÉRATION DES PRÉSENCES DE L'ÉLÈVE
+        $studentSlots = TrainingSlot::where('student_name', $targetStudent)
             ->get()
-            ->groupBy(function($item) {
-                return $item->date->format('Y-m-d');
+            // On crée une clé unique "YYYY-MM-DD_period" pour retrouver facilement
+            ->keyBy(function($item) {
+                return $item->date->format('Y-m-d') . '_' . $item->period;
             });
 
-        if ($days->isEmpty()) return redirect()->back()->withErrors(['file' => 'Aucune donnée.']);
+        // 4. FUSION (Merge)
+        // On parcourt le Master Planning et on injecte les données de l'élève
+        $finalSchedule = [];
+        $totalHeuresPrevues = 0;
 
-        $trainingName = "TP Gestionnaire de Paie"; // Nom fixe ou dynamique
-        $filename = 'Relevé_' . Str::slug($targetStudent) . '.pdf';
+        foreach ($masterSlots as $slot) {
+            $dateKey = $slot->date->format('Y-m-d');
+            $lookupKey = $dateKey . '_' . $slot->period;
 
-        // --- ICI LE CHANGEMENT ---
-        // On charge la nouvelle vue "modern_schedule"
-        $pdf = Pdf::loadView('pdf.modern_schedule', [
-            'days' => $days, 
+            // Est-ce que l'élève a une ligne pour ce créneau ?
+            $studentEntry = $studentSlots->get($lookupKey);
+
+            // On construit l'objet pour la vue
+            if (!isset($finalSchedule[$dateKey])) {
+                $finalSchedule[$dateKey] = ['morning' => null, 'afternoon' => null];
+            }
+
+            // On prépare les données du créneau
+            $slotData = [
+                'module_name' => $slot->module_name,
+                'instructor_name' => $slot->instructor_name,
+                // Si l'élève a une entrée, on prend son statut, sinon "null" (considéré comme absent/non noté)
+                'is_present' => $studentEntry ? $studentEntry->is_present : false,
+                'has_data' => $studentEntry ? true : false // Pour savoir si on a une info ou pas
+            ];
+
+            $finalSchedule[$dateKey][$slot->period] = (object) $slotData;
+            
+            // On cumule 3.5h pour chaque créneau théorique existant
+            $totalHeuresPrevues += 3.5; 
+        }
+
+        $trainingName = "TP Gestionnaire de Paie"; // Ou dynamique selon le module le plus fréquent
+        $filename = 'Planning_' . \Illuminate\Support\Str::slug($targetStudent) . '.pdf';
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.modern_schedule', [
+            'schedule' => $finalSchedule, // On passe notre nouveau tableau fusionné
             'studentName' => $targetStudent,
-            'trainingName' => $trainingName
-        ])->setPaper('a4', 'portrait'); // Portrait est souvent plus élégant pour ce style
+            'trainingName' => $trainingName,
+            'totalHeures' => $totalHeuresPrevues // On passe le total théorique
+        ])->setPaper('a4', 'portrait');
         
         return $pdf->download($filename);
     }
