@@ -101,7 +101,8 @@
 
     <div class="header">
         <div class="title">Programme de Formation</div>
-        <div class="subtitle">{{ $trainingName }}</div>
+        <div class="subtitle">Mon Passeport pour l'Insertion</div>
+        <!-- <div class="subtitle">{{ $trainingName }}</div> -->
         <div class="student-badge">👤 {{ $studentName }}</div>
     </div>
 
@@ -147,9 +148,9 @@
         @endforeach
     @endforeach
 
-    <div class="footer">
+    <!-- <div class="footer">
         Document généré le {{ date('d/m/Y') }} • PlanningGen Solutions
-    </div>
+    </div> -->
 
 </body>
 </html>
