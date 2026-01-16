@@ -32,7 +32,10 @@ class ProcessAttendancePdf implements ShouldQueue
         $fullPath = Storage::path($this->attendanceFile->path);
         
         // Ton chemin GS
-        $gsBinary = 'C:/Program Files/gs/gs10.06.0/bin/gswin64c.exe'; 
+        // On cherche dans le .env, sinon on utilise 'gs' (commande par défaut sur Linux)
+        $gsBinary = env('GHOSTSCRIPT_PATH', 'gs');
+        
+        // $gsBinary = 'C:/Program Files/gs/gs10.06.0/bin/gswin64c.exe'; 
         $pdfPathForGs = str_replace('\\', '/', $fullPath);
         
         $tempDir = storage_path("app/temp_split_" . $this->attendanceFile->id);
