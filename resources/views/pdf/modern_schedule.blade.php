@@ -7,139 +7,187 @@
         @page { margin: 0cm; }
         body {
             font-family: 'Helvetica', sans-serif;
-            background-color: #ffffff;
-            margin: 1.5cm;
+            background-color: #f8fafc;
+            margin: 1cm;
             color: #1e293b;
         }
 
         /* HEADER */
         .header {
-            margin-bottom: 30px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 20px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 12px;
+            border-left: 6px solid #4f46e5; /* Indigo */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .brand { font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 2px; font-weight: bold; }
-        .title { font-size: 22px; font-weight: 900; color: #0f172a; margin-top: 5px; }
-        .student-box { 
-            background: #f8fafc; 
-            border-left: 4px solid #4f46e5; 
-            padding: 15px; 
-            margin-top: 15px; 
-            border-radius: 0 4px 4px 0;
-        }
-        .student-label { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold; }
-        .student-name { font-size: 16px; font-weight: bold; color: #334155; }
+        .title { font-size: 20px; font-weight: 900; color: #1e293b; text-transform: uppercase; }
+        .subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
+        
+        .header-infos { width: 100%; margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 10px; }
+        .info-label { font-size: 9px; text-transform: uppercase; color: #94a3b8; font-weight: bold; }
+        .info-value { font-size: 14px; font-weight: bold; color: #334155; }
+        .total-box { text-align: right; }
+        .total-val { font-size: 22px; font-weight: 900; color: #4f46e5; }
 
-        /* STATS */
-        .stats-table { width: 100%; margin-top: 15px; border-collapse: collapse; }
-        .stat-val { font-size: 24px; font-weight: 900; color: #4f46e5; }
-        .stat-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold; }
-
-        /* PLANNING LIST */
-        .planning-container { margin-top: 30px; }
-        .day-row {
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
+        /* DAY CARD CONTAINER */
+        .day-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
             page-break-inside: avoid;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
-        .day-row:last-child { border-bottom: none; }
 
-        .date-col { display: inline-block; width: 18%; vertical-align: top; }
-        .date-day { font-size: 14px; font-weight: bold; color: #334155; }
-        .date-month { font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: bold; }
-
-        .content-col { display: inline-block; width: 80%; vertical-align: top; }
+        .layout-table { width: 100%; border-collapse: collapse; }
         
-        .slot { margin-bottom: 6px; position: relative; padding-left: 60px; min-height: 25px; }
-        .slot-time { 
-            position: absolute; left: 0; top: 2px;
-            font-size: 9px; font-weight: bold; color: #94a3b8; 
-            width: 50px; text-align: right;
+        /* COLONNE DATE (GAUCHE) */
+        .col-date {
+            width: 80px;
+            background-color: #f8fafc;
+            text-align: center;
+            vertical-align: middle;
+            border-right: 1px solid #e2e8f0;
         }
-        .slot-info { border-left: 2px solid #e2e8f0; padding-left: 10px; margin-left: 5px; }
-        .module { font-size: 11px; font-weight: bold; color: #1e293b; }
-        .instructor { font-size: 10px; color: #64748b; font-style: italic; }
+        .day-num { font-size: 24px; font-weight: 800; color: #334155; line-height: 1; display: block; }
+        .day-name { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-top: 4px; display: block;}
 
-        /* STATUS DOTS (Discret) */
-        .status-dot {
-            display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px;
+        /* COLONNE CONTENU (CENTRE) */
+        .col-content { padding: 0; vertical-align: top; }
+
+        .session-row {
+            padding: 12px 15px;
+            border-bottom: 1px dashed #e2e8f0;
         }
-        .dot-green { background-color: #22c55e; } /* Présent */
-        .dot-red { background-color: #ef4444; }   /* Absent/Inconnu */
+        .session-row:last-child { border-bottom: none; }
+
+        .time-badge {
+            font-size: 9px; font-weight: bold; text-transform: uppercase;
+            padding: 2px 6px; border-radius: 4px; margin-right: 8px;
+            display: inline-block; width: 55px; text-align: center;
+        }
+        .bg-matin { background: #fffbeb; color: #b45309; }
+        .bg-aprem { background: #eff6ff; color: #1d4ed8; }
+
+        .module-text { font-size: 12px; font-weight: bold; color: #0f172a; }
+        .instructor-text { font-size: 10px; color: #64748b; font-style: italic; display: block; margin-top: 3px; margin-left: 75px; }
+
+        /* COLONNE STATUT (DROITE) */
+        .col-status {
+            width: 90px;
+            vertical-align: middle;
+            text-align: center;
+            border-left: 1px solid #e2e8f0;
+            background-color: #fafafa;
+            padding: 0 5px;
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 3px 0;
+            width: 100%;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 4px 0;
+            text-align: center;
+        }
+        .pill-present { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .pill-absent { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         
-        .footer { position: fixed; bottom: 1cm; left: 0; right: 0; text-align: center; font-size: 9px; color: #cbd5e1; }
+        .footer { position: fixed; bottom: 0.5cm; width: 100%; text-align: center; font-size: 9px; color: #cbd5e1; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="brand">Organisme de Formation</div>
-        <div class="title">Planning Général de Formation</div>
+        <div class="title">Planning de Formation</div>
+        <div class="subtitle">{{ $trainingName }}</div>
         
-        <table width="100%">
+        <table class="header-infos">
             <tr>
-                <td width="60%">
-                    <div class="student-box">
-                        <div class="student-label">Apprenant</div>
-                        <div class="student-name">{{ $studentName }}</div>
-                    </div>
+                <td>
+                    <div class="info-label">Apprenant</div>
+                    <div class="info-value">{{ $studentName }}</div>
                 </td>
-                <td width="40%" align="right" style="vertical-align: bottom;">
-                    <div class="stat-val">{{ $totalHeures }}h</div>
-                    <div class="stat-lbl">Volume Horaire Prévu</div>
+                <td class="total-box">
+                    <div class="total-val">{{ $totalHeures }}h</div>
+                    <div class="info-label">Volume Horaire Prévu</div>
                 </td>
             </tr>
         </table>
     </div>
 
-    <div class="planning-container">
-        @foreach($schedule as $date => $periods)
-            @php
-                $carbonDate = \Carbon\Carbon::parse($date);
-            @endphp
-            <div class="day-row">
-                <div class="date-col">
-                    <div class="date-day">{{ $carbonDate->locale('fr')->isoFormat('ddd D') }}</div>
-                    <div class="date-month">{{ $carbonDate->locale('fr')->isoFormat('MMM YYYY') }}</div>
-                </div>
+    @foreach($schedule as $date => $periods)
+        @php
+            $carbonDate = \Carbon\Carbon::parse($date);
+        @endphp
 
-                <div class="content-col">
-                    
-                    @if($periods['morning'])
-                        <div class="slot">
-                            <div class="slot-time">08:30 - 12:00</div>
-                            <div class="slot-info" style="border-left-color: {{ $periods['morning']->is_present ? '#22c55e' : '#cbd5e1' }}">
-                                <div class="module">
-                                    {{ $periods['morning']->module_name ?? 'Formation' }}
-                                </div>
-                                <div class="instructor">
-                                    {{ $periods['morning']->instructor_name ?? 'Intervenant non précisé' }}
-                                </div>
-                            </div>
+        <div class="day-card">
+            <table class="layout-table">
+                <tr>
+                    <td class="col-date">
+                        <span class="day-num">{{ $carbonDate->format('d') }}</span>
+                        <span class="day-name">{{ $carbonDate->locale('fr')->isoFormat('MMM') }}</span>
+                        <div style="font-size:8px; color:#cbd5e1; margin-top:2px;">{{ $carbonDate->format('Y') }}</div>
+                    </td>
+
+                    <td class="col-content">
+                        
+                        <div class="session-row">
+                            <span class="time-badge bg-matin">Matin</span>
+                            @if($periods['morning'])
+                                <span class="module-text">{{ $periods['morning']->module_name ?? 'Formation' }}</span>
+                                <span class="instructor-text">Formateur : {{ $periods['morning']->instructor_name ?? 'Non précisé' }}</span>
+                            @else
+                                <span class="module-text" style="color:#cbd5e1; font-style:italic;">- Aucun cours prévu -</span>
+                            @endif
                         </div>
-                    @endif
 
-                    @if($periods['afternoon'])
-                        <div class="slot">
-                            <div class="slot-time">13:00 - 16:30</div>
-                            <div class="slot-info" style="border-left-color: {{ $periods['afternoon']->is_present ? '#22c55e' : '#cbd5e1' }}">
-                                <div class="module">
-                                    {{ $periods['afternoon']->module_name ?? 'Formation' }}
-                                </div>
-                                <div class="instructor">
-                                    {{ $periods['afternoon']->instructor_name ?? 'Intervenant non précisé' }}
-                                </div>
-                            </div>
+                        <div class="session-row">
+                            <span class="time-badge bg-aprem">Ap-Midi</span>
+                            @if($periods['afternoon'])
+                                <span class="module-text">{{ $periods['afternoon']->module_name ?? 'Formation' }}</span>
+                                <span class="instructor-text">Formateur : {{ $periods['afternoon']->instructor_name ?? 'Non précisé' }}</span>
+                            @else
+                                <span class="module-text" style="color:#cbd5e1; font-style:italic;">- Aucun cours prévu -</span>
+                            @endif
                         </div>
-                    @endif
+                    </td>
 
-                </div>
-            </div>
-        @endforeach
-    </div>
+                    <td class="col-status">
+                        @if($periods['morning'])
+                            @if($periods['morning']->is_present)
+                                <div class="status-pill pill-present">Présent</div>
+                            @else
+                                <div class="status-pill pill-absent">Absent</div>
+                            @endif
+                        @else
+                            <div style="font-size:8px; color:#cbd5e1;">-</div>
+                        @endif
+
+                        <div style="height:1px; background:#e2e8f0; margin: 2px 10px;"></div>
+
+                        @if($periods['afternoon'])
+                            @if($periods['afternoon']->is_present)
+                                <div class="status-pill pill-present">Présent</div>
+                            @else
+                                <div class="status-pill pill-absent">Absent</div>
+                            @endif
+                        @else
+                            <div style="font-size:8px; color:#cbd5e1;">-</div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
+        </div>
+    @endforeach
 
     <div class="footer">
-        Document généré automatiquement le {{ date('d/m/Y') }}
+        Document généré le {{ date('d/m/Y') }}
     </div>
 
 </body>
