@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Models\AttendanceFile;
 use App\Models\TrainingSlot;
-use App\Services\AttendanceAnalyzer; // <--- Import indispensable !
+// 👇👇 C'EST CETTE LIGNE QUI MANQUE ET QUI CRÉE L'ERREUR 👇👇
+use App\Services\AttendanceAnalyzer; 
+// 👆👆----------------------------------------------------👆👆
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,7 +20,7 @@ class AnalyzePageJob implements ShouldQueue
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 120;
-    public $tries = 5; // On réessaie 5 fois en cas de pépin
+    public $tries = 5;
 
     protected $imagePath;
     protected $attendanceFileId;
@@ -33,26 +35,30 @@ class AnalyzePageJob implements ShouldQueue
 
     public function backoff()
     {
-        return [5, 15, 30]; // Temps d'attente progressif
+        return [5, 15, 30];
     }
 
-    public function handle(AttendanceAnalyzer $analyzer)
+    public function handle() 
     {
         if ($this->batch() && $this->batch()->cancelled()) return;
 
+        // On l'instancie manuellement ici
+        // Assure-toi d'avoir gardé le "use App\Services\AttendanceAnalyzer;" en haut
+        $analyzer = new \App\Services\AttendanceAnalyzer(); 
+
         try {
             if (file_exists($this->imagePath)) {
-                // 1. Analyse via le Service
+                // On utilise notre objet créé manuellement
                 $data = $analyzer->analyzePage($this->imagePath);
 
-                // 2. Vérification que l'IA a renvoyé quelque chose
+                // 2. Vérification Données
                 if (empty($data) || empty($data['date'])) {
                     Log::warning("Page ignorée (Pas de date ou vide) : " . $this->filename);
                     @unlink($this->imagePath);
                     return;
                 }
 
-                // 3. Validation de la date pour éviter le crash "Unknown"
+                // 3. Validation Date
                 $dateValide = false;
                 try {
                     if (strtotime($data['date']) !== false) {
@@ -62,7 +68,7 @@ class AnalyzePageJob implements ShouldQueue
 
                 if ($dateValide) {
                     
-                    // Nettoyage et enregistrement
+                    // Nettoyage et Enregistrement
                     $rawName = $data['student_name'] ?? 'PLANNING_GLOBAL';
                     $studentName = mb_strtoupper($this->forceUtf8($rawName));
 
@@ -86,13 +92,13 @@ class AnalyzePageJob implements ShouldQueue
                         ]
                     );
                 } else {
-                    Log::info("Date invalide ignorée ({$data['date']}) sur fichier : " . $this->filename);
+                    Log::info("Date invalide ignorée ({$data['date']}) sur : " . $this->filename);
                 }
 
-                // Nettoyage image
+                // Nettoyage
                 @unlink($this->imagePath);
                 
-                // Progression du fichier parent
+                // Progression
                 $file = AttendanceFile::find($this->attendanceFileId);
                 if ($file) {
                     $file->increment('processed_pages');
@@ -103,8 +109,6 @@ class AnalyzePageJob implements ShouldQueue
             }
         } catch (\Exception $e) {
             Log::error("Erreur Job : " . $e->getMessage());
-            // Si c'est une erreur temporaire (réseau/IA), on laisse Laravel réessayer (throw)
-            // Sinon on supprime l'image pour ne pas bloquer
             if (!str_contains($e->getMessage(), 'Rate limit')) {
                 @unlink($this->imagePath);
             }

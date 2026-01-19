@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services; 
 
 use OpenAI\Laravel\Facades\OpenAI;
 use Illuminate\Support\Facades\Log;
