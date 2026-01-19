@@ -4,9 +4,6 @@ namespace App\Jobs;
 
 use App\Models\AttendanceFile;
 use App\Models\TrainingSlot;
-// 👇👇 C'EST CETTE LIGNE QUI MANQUE ET QUI CRÉE L'ERREUR 👇👇
-use App\Services\AttendanceAnalyzer; 
-// 👆👆----------------------------------------------------👆👆
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +17,7 @@ class AnalyzePageJob implements ShouldQueue
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 120;
-    public $tries = 5;
+    public $tries = 3;
 
     protected $imagePath;
     protected $attendanceFileId;
@@ -33,48 +30,36 @@ class AnalyzePageJob implements ShouldQueue
         $this->filename = $filename;
     }
 
-    public function backoff()
-    {
-        return [5, 15, 30];
-    }
-
+    // --- ICI : PAS D'ARGUMENT DANS LES PARENTHÈSES ---
     public function handle() 
     {
         if ($this->batch() && $this->batch()->cancelled()) return;
 
-        // On l'instancie manuellement ici
-        // Assure-toi d'avoir gardé le "use App\Services\AttendanceAnalyzer;" en haut
+        // On instancie MANUELLEMENT pour contourner le bug d'injection
+        // Le backslash \ au début est important pour forcer le chemin absolu
         $analyzer = new \App\Services\AttendanceAnalyzer(); 
 
         try {
             if (file_exists($this->imagePath)) {
-                // On utilise notre objet créé manuellement
                 $data = $analyzer->analyzePage($this->imagePath);
 
-                // 2. Vérification Données
+                // --- SÉCURITÉ CONTRE LES PAGES VIDES ---
                 if (empty($data) || empty($data['date'])) {
-                    Log::warning("Page ignorée (Pas de date ou vide) : " . $this->filename);
+                    Log::warning("Page ignorée (Pas de date) : " . $this->filename);
                     @unlink($this->imagePath);
                     return;
                 }
 
-                // 3. Validation Date
+                // --- SÉCURITÉ DATE ---
                 $dateValide = false;
                 try {
-                    if (strtotime($data['date']) !== false) {
-                        $dateValide = true;
-                    }
-                } catch (\Exception $e) { $dateValide = false; }
+                    if (strtotime($data['date']) !== false) $dateValide = true;
+                } catch (\Exception $e) {}
 
                 if ($dateValide) {
-                    
-                    // Nettoyage et Enregistrement
                     $rawName = $data['student_name'] ?? 'PLANNING_GLOBAL';
                     $studentName = mb_strtoupper($this->forceUtf8($rawName));
 
-                    $moduleName = $this->forceUtf8($data['module_name'] ?? 'Formation');
-                    $instructorName = $this->forceUtf8($data['instructor_name'] ?? 'Non précisé');
-                    
                     $period = strtolower($data['period'] ?? 'morning');
                     if (!in_array($period, ['morning', 'afternoon'])) $period = 'morning';
 
@@ -85,20 +70,16 @@ class AnalyzePageJob implements ShouldQueue
                             'period' => $period,
                         ],
                         [
-                            'module_name' => $moduleName,
-                            'instructor_name' => $instructorName,
+                            'module_name' => $this->forceUtf8($data['module_name'] ?? 'Formation'),
+                            'instructor_name' => $this->forceUtf8($data['instructor_name'] ?? 'Non précisé'),
                             'source_file' => $this->filename,
                             'is_present' => true, 
                         ]
                     );
-                } else {
-                    Log::info("Date invalide ignorée ({$data['date']}) sur : " . $this->filename);
                 }
 
-                // Nettoyage
                 @unlink($this->imagePath);
                 
-                // Progression
                 $file = AttendanceFile::find($this->attendanceFileId);
                 if ($file) {
                     $file->increment('processed_pages');
@@ -112,7 +93,7 @@ class AnalyzePageJob implements ShouldQueue
             if (!str_contains($e->getMessage(), 'Rate limit')) {
                 @unlink($this->imagePath);
             }
-            throw $e; 
+            throw $e;
         }
     }
 
