@@ -41,7 +41,8 @@ class AttendanceAnalyzer
 
         try {
             $response = OpenAI::chat()->create([
-                'model' => 'gpt-4o', 
+                // 'model' => 'gpt-4o', 
+                'model' => 'gpt-5-mini',
                 'messages' => [
                     [
                         'role' => 'user',

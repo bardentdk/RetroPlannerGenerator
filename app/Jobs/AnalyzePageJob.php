@@ -46,15 +46,23 @@ class AnalyzePageJob implements ShouldQueue
 
         try {
             if (file_exists($this->imagePath)) {
+                // 1. Analyse par l'IA
                 $data = $analyzer->analyzePage($this->imagePath);
 
-                // Si l'IA renvoie un tableau vide, on considère que c'est une erreur temporaire
-                // et on lance une exception pour déclencher le "retry" automatique
+                // 2. Vérification de sécurité : Si l'IA échoue ou renvoie vide
                 if (empty($data)) {
-                    throw new \Exception("Réponse IA vide ou invalide (Rate Limit probable)");
+                    // On ne lance pas d'exception pour ne pas bloquer la queue, on log juste
+                    Log::warning("Page ignorée (Données vides) : " . $this->filename);
+                    @unlink($this->imagePath);
+                    return; 
                 }
 
-                if (!empty($data) && !empty($data['date'])) {
+                // 3. Vérification de la DATE (C'est ici que ça plantait avant !)
+                // On vérifie si la date est valide et n'est pas "Unknown"
+                $dateString = $data['date'] ?? null;
+                $isValidDate = $dateString && strtotime($dateString) !== false;
+
+                if ($isValidDate) {
                     
                     $rawName = $data['student_name'] ?? 'PLANNING_REF';
                     if (strtoupper($rawName) === 'IGNORE') $rawName = 'PLANNING_REF'; 
@@ -69,7 +77,7 @@ class AnalyzePageJob implements ShouldQueue
                     TrainingSlot::updateOrCreate(
                         [
                             'student_name' => $studentName,
-                            'date' => $data['date'],
+                            'date' => $data['date'], // On utilise la date validée
                             'period' => $period,
                         ],
                         [
@@ -79,11 +87,14 @@ class AnalyzePageJob implements ShouldQueue
                             'source_file' => $this->filename,
                         ]
                     );
+                } else {
+                    Log::info("Page ignorée (Date invalide ou inconnue) : " . $this->filename);
                 }
                 
-                // Suppression de l'image seulement si succès
+                // Nettoyage
                 @unlink($this->imagePath);
                 
+                // Mise à jour de la progression
                 $file = AttendanceFile::find($this->attendanceFileId);
                 if ($file) {
                     $file->increment('processed_pages');
@@ -93,12 +104,13 @@ class AnalyzePageJob implements ShouldQueue
                 }
             }
         } catch (\Exception $e) {
-            // Si c'est une erreur de Rate Limit (429), Laravel va utiliser la fonction backoff()
-            // On log juste un warning pour info
-            Log::warning("Tentative échouée pour une page (Retry prévu) : " . $e->getMessage());
-            
-            // On RELANCE l'erreur pour que Laravel sache qu'il faut ré-essayer plus tard
-            throw $e;
+            // En cas de Rate Limit, on relance (le backoff gérera l'attente)
+            if (str_contains($e->getMessage(), 'Rate limit')) {
+                throw $e;
+            }
+            // Pour les autres erreurs, on log mais on ne fait pas planter tout le process
+            Log::error("Erreur page (Job supprimé) : " . $e->getMessage());
+            @unlink($this->imagePath);
         }
     }
 
