@@ -43,7 +43,10 @@ class AttendanceAnalyzer
 
         try {
             $response = OpenAI::chat()->create([
-                'model' => 'gpt-5-mini', 
+                // --- CHANGEMENT DE MODELE ---
+                // On prend celui qui a 500k TPM (Tokens Per Minute) pour la vitesse
+                'model' => 'chatgpt-4o-latest', 
+                
                 'messages' => [
                     [
                         'role' => 'user',
@@ -56,9 +59,11 @@ class AttendanceAnalyzer
                         ],
                     ],
                 ],
-                'temperature' => 1,
-                // 'max_tokens' => 400,
-                'max_completion_tokens' => 400,
+                // --- CORRECTION CRITIQUE ---
+                // On supprime carrément la ligne 'max_tokens' ou 'max_completion_tokens'.
+                // On laisse l'IA gérer la longueur par défaut.
+                // Cela élimine 100% des erreurs de paramètres API.
+                'temperature' => 0.0, 
             ]);
 
             $content = $response->choices[0]->message->content;
