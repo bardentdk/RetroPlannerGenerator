@@ -41,8 +41,7 @@ class AttendanceAnalyzer
 
         try {
             $response = OpenAI::chat()->create([
-                // 'model' => 'gpt-4o', 
-                'model' => 'gpt-5-mini',
+                'model' => 'gpt-5-mini', 
                 'messages' => [
                     [
                         'role' => 'user',
@@ -57,6 +56,7 @@ class AttendanceAnalyzer
                 ],
                 'temperature' => 0.0,
                 'max_tokens' => 400,
+                'max_completion_tokens' => 400,
             ]);
 
             $content = $response->choices[0]->message->content;
