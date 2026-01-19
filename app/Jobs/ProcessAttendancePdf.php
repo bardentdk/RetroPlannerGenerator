@@ -53,7 +53,10 @@ class ProcessAttendancePdf implements ShouldQueue
                 $pdfPathForGs
             ];
 
-            Process::run($cmd);
+            // --- CORRECTION ICI ---
+            // On passe de 60s (défaut) à 1200s (20 minutes)
+            // Cela laisse le temps à Ghostscript de découper les gros fichiers
+            Process::timeout(1200)->run($cmd); 
 
             // 2. Compter les fichiers
             $files = glob($tempDir . "/page_*.jpg");

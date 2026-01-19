@@ -18,6 +18,10 @@ class AnalyzePageJob implements ShouldQueue
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 120;
+    
+    // --- NOUVEAU : On essaie jusqu'à 10 fois avant d'abandonner ---
+    public $tries = 10; 
+
     protected $imagePath;
     protected $attendanceFileId;
     protected $filename;
@@ -29,6 +33,13 @@ class AnalyzePageJob implements ShouldQueue
         $this->filename = $filename;
     }
 
+    // --- NOUVEAU : Stratégie d'attente progressive (en secondes) ---
+    // Si ça plante, on attend 5s, puis 15s, 30s, 60s, 120s...
+    public function backoff()
+    {
+        return [5, 15, 30, 60, 120, 120, 120];
+    }
+
     public function handle(AttendanceAnalyzer $analyzer)
     {
         if ($this->batch() && $this->batch()->cancelled()) return;
@@ -37,12 +48,16 @@ class AnalyzePageJob implements ShouldQueue
             if (file_exists($this->imagePath)) {
                 $data = $analyzer->analyzePage($this->imagePath);
 
-                // On accepte la donnée SI on a une date, même sans élève précis
+                // Si l'IA renvoie un tableau vide, on considère que c'est une erreur temporaire
+                // et on lance une exception pour déclencher le "retry" automatique
+                if (empty($data)) {
+                    throw new \Exception("Réponse IA vide ou invalide (Rate Limit probable)");
+                }
+
                 if (!empty($data) && !empty($data['date'])) {
                     
-                    // Si l'IA n'a trouvé personne ou a mis le code générique
                     $rawName = $data['student_name'] ?? 'PLANNING_REF';
-                    if (strtoupper($rawName) === 'IGNORE') $rawName = 'PLANNING_REF'; // Sécurité
+                    if (strtoupper($rawName) === 'IGNORE') $rawName = 'PLANNING_REF'; 
 
                     $studentName = $this->forceUtf8($rawName);
                     $moduleName = $this->forceUtf8($data['module_name'] ?? 'Formation');
@@ -51,10 +66,9 @@ class AnalyzePageJob implements ShouldQueue
                     $period = strtolower($data['period'] ?? 'morning');
                     if (!in_array($period, ['morning', 'afternoon'])) $period = 'morning';
 
-                    // On enregistre !
                     TrainingSlot::updateOrCreate(
                         [
-                            'student_name' => $studentName, // Peut être "PLANNING_REF"
+                            'student_name' => $studentName,
                             'date' => $data['date'],
                             'period' => $period,
                         ],
@@ -67,6 +81,7 @@ class AnalyzePageJob implements ShouldQueue
                     );
                 }
                 
+                // Suppression de l'image seulement si succès
                 @unlink($this->imagePath);
                 
                 $file = AttendanceFile::find($this->attendanceFileId);
@@ -78,7 +93,12 @@ class AnalyzePageJob implements ShouldQueue
                 }
             }
         } catch (\Exception $e) {
-            Log::error("Erreur analyse page : " . $e->getMessage());
+            // Si c'est une erreur de Rate Limit (429), Laravel va utiliser la fonction backoff()
+            // On log juste un warning pour info
+            Log::warning("Tentative échouée pour une page (Retry prévu) : " . $e->getMessage());
+            
+            // On RELANCE l'erreur pour que Laravel sache qu'il faut ré-essayer plus tard
+            throw $e;
         }
     }
 
