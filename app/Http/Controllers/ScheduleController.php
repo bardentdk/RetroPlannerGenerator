@@ -22,9 +22,10 @@ class ScheduleController extends Controller
         // 2. Récupérer la liste UNIQUE des étudiants pour la sidebar (triée A-Z)
         // On utilise distinct() car un étudiant a plein de lignes
         $students = TrainingSlot::select('student_name')
-                        ->distinct()
-                        ->orderBy('student_name')
-                        ->pluck('student_name');
+            ->distinct()
+            ->where('student_name', '!=', 'PLANNING_REF') // <--- LE FILTRE EST ICI
+            ->orderBy('student_name')
+            ->pluck('student_name');
 
         // 3. Gestion de la sélection d'un étudiant
         $selectedStudent = $request->input('student');
@@ -141,26 +142,18 @@ class ScheduleController extends Controller
             return redirect()->back()->withErrors(['file' => 'Veuillez sélectionner un apprenant.']);
         }
 
-        // 1. On récupère les fichiers sources
-        $sourceFiles = TrainingSlot::where('student_name', $targetStudent)
-            ->pluck('source_file')
-            ->unique();
-
-        if ($sourceFiles->isEmpty()) {
-            return redirect()->back()->withErrors(['file' => 'Aucune donnée pour cet apprenant.']);
-        }
-
-        // 2. MASTER PLANNING (Tous les créneaux théoriques existants en BDD)
+        // --- CORRECTION 1 : On nettoie la liste des fichiers pour ne pas prendre les doublons
+        // On récupère toutes les dates de formation (le Master Planning)
         $masterSlots = TrainingSlot::select('date', 'period', 'module_name', 'instructor_name')
             ->whereNotNull('date')
             ->orderBy('date')
             ->get()
             // On dédoublonne pour avoir 1 ligne unique par créneau horaire
             ->unique(function ($item) {
-                return $item->date->format('Y-m-d') . $item->period;
+                return $item->date->format('Y-m-d') . '_' . $item->period;
             });
 
-        // 3. FUSION & CALCUL DU TOTAL THÉORIQUE
+        // --- CORRECTION 2 : Calcul des heures précis ---
         $finalSchedule = [];
         $totalHeuresPrevues = 0;
 
@@ -171,7 +164,7 @@ class ScheduleController extends Controller
                 $finalSchedule[$dateKey] = ['morning' => null, 'afternoon' => null];
             }
 
-            // On prépare juste les infos du cours (plus besoin de is_present)
+            // On prépare les données
             $slotData = [
                 'module_name' => $slot->module_name,
                 'instructor_name' => $slot->instructor_name,
@@ -179,13 +172,17 @@ class ScheduleController extends Controller
 
             $finalSchedule[$dateKey][$slot->period] = (object) $slotData;
             
-            // --- LE CALCUL EST ICI ---
-            // On ajoute 3.5h pour chaque créneau existant dans le planning,
-            // peu importe si l'élève a signé ou non.
-            $totalHeuresPrevues += 3.5; 
+            // --- NOUVEAU CALCUL ---
+            // Matin (08:30 - 12:30) = 4h
+            // Après-midi (13:30 - 16:30) = 3h
+            if ($slot->period === 'morning') {
+                $totalHeuresPrevues += 4;
+            } elseif ($slot->period === 'afternoon') {
+                $totalHeuresPrevues += 3;
+            }
         }
 
-        $trainingName = "Calendrier de Formation";
+        $trainingName = "TP Gestionnaire de Paie";
         $filename = 'Planning_' . \Illuminate\Support\Str::slug($targetStudent) . '.pdf';
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.modern_schedule', [

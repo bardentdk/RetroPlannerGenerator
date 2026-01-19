@@ -65,9 +65,13 @@ class AnalyzePageJob implements ShouldQueue
                 if ($isValidDate) {
                     
                     $rawName = $data['student_name'] ?? 'PLANNING_REF';
-                    if (strtoupper($rawName) === 'IGNORE') $rawName = 'PLANNING_REF'; 
+                    if (strtoupper($rawName) === 'IGNORE') $rawName = 'PLANNING_REF';
 
-                    $studentName = $this->forceUtf8($rawName);
+                    $studentName = mb_strtoupper($this->forceUtf8($rawName));
+
+                    if ($studentName === 'PLANNING_REF') {
+                         // On peut laisser PLANNING_REF ou le gérer à part
+                    }
                     $moduleName = $this->forceUtf8($data['module_name'] ?? 'Formation');
                     $instructorName = $this->forceUtf8($data['instructor_name'] ?? 'Non précisé');
                     

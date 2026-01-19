@@ -17,20 +17,22 @@ class AttendanceAnalyzer
         $prompt = <<<EOT
         You are analyzing a training schedule/attendance document.
         
-        YOUR GOAL: Extract the TRAINING SESSION details (Date, Period, Module).
+        YOUR GOAL: Extract the TRAINING SESSION details.
         
         INSTRUCTIONS:
-        1. **Date & Period**: Find the date (YYYY-MM-DD) and time (Morning/Afternoon). This is MANDATORY.
-        2. **Module & Instructor**: Extract the course name and instructor name.
-        3. **Student Name**: 
-           - Look for a specific student name.
-           - IF THE PAGE IS A BLANK TEMPLATE OR NO STUDENT IS FOUND: Return "PLANNING_REF".
-           - Do NOT return "IGNORE". We want to keep the date even if no one is there.
-        4. **Signature**: Check if signed.
+        1. **Date & Period**: Find the date (YYYY-MM-DD).
+           - "Matin" (08:30-12:30) = period: "morning"
+           - "Après-midi" (13:30-16:30) = period: "afternoon"
+        2. **Student Name**: 
+           - Extract the MAIN student name listed at the top or in the "Apprenant" box.
+           - IMPORTANT: Normalize name as "LASTNAME Firstname" (e.g., "BOYER Lorenza"). 
+           - Always put the family name first in UPPERCASE.
+           - IF NO STUDENT FOUND: Return "PLANNING_REF".
+        3. **Instructor & Module**: Extract them.
         
         Return JSON only:
         {
-            "student_name": "String" (or "PLANNING_REF"),
+            "student_name": "String",
             "instructor_name": "String",
             "module_name": "String",
             "date": "YYYY-MM-DD",
@@ -55,7 +57,7 @@ class AttendanceAnalyzer
                     ],
                 ],
                 'temperature' => 0.0,
-                'max_tokens' => 400,
+                // 'max_tokens' => 400,
                 'max_completion_tokens' => 400,
             ]);
 
