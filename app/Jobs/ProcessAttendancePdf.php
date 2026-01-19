@@ -26,82 +26,80 @@ class ProcessAttendancePdf implements ShouldQueue
         $this->attendanceFile = $attendanceFile;
     }
 
-    public function handle(): void
+    public function handle(AttendanceAnalyzer $analyzer)
     {
-        $this->attendanceFile->update(['status' => 'processing']);
-        $fullPath = Storage::path($this->attendanceFile->path);
-        
-        // Ton chemin GS
-        // On cherche dans le .env, sinon on utilise 'gs' (commande par défaut sur Linux)
-        $gsBinary = env('GHOSTSCRIPT_PATH', 'gs');
-        
-        // $gsBinary = 'C:/Program Files/gs/gs10.06.0/bin/gswin64c.exe'; 
-        $pdfPathForGs = str_replace('\\', '/', $fullPath);
-        
-        $tempDir = storage_path("app/temp_split_" . $this->attendanceFile->id);
-        if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
+        if ($this->batch() && $this->batch()->cancelled()) return;
 
         try {
-            // 1. EXTRACTION EN MASSE
-            $outputPattern = str_replace('\\', '/', $tempDir) . "/page_%d.jpg";
-            
-            $cmd = [
-                $gsBinary, '-dSAFER', '-dBATCH', '-dNOPAUSE', '-sDEVICE=jpeg',
-                '--permit-file-read='.$pdfPathForGs,
-                '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', '-r300',
-                "-sOutputFile={$outputPattern}",
-                $pdfPathForGs
-            ];
+            if (file_exists($this->imagePath)) {
+                $data = $analyzer->analyzePage($this->imagePath);
 
-            // --- CORRECTION ICI ---
-            // On passe de 60s (défaut) à 1200s (20 minutes)
-            // Cela laisse le temps à Ghostscript de découper les gros fichiers
-            Process::timeout(1200)->run($cmd); 
+                // Si données vides, on log et on passe (le fichier n'avait peut-être pas de date visible)
+                if (empty($data) || empty($data['date'])) {
+                    Log::warning("Page sans date détectée : " . $this->filename);
+                    @unlink($this->imagePath);
+                    return;
+                }
 
-            // 2. Compter les fichiers
-            $files = glob($tempDir . "/page_*.jpg");
-            $total = count($files);
-            
-            if ($total === 0) throw new \Exception("Aucune page extraite.");
-            
-            $this->attendanceFile->update(['total_pages' => $total]);
+                // VALIDATION DATE
+                $dateValide = false;
+                try {
+                    // On vérifie que c'est une vraie date et pas "Unknown"
+                    if (strtotime($data['date']) !== false) {
+                        $dateValide = true;
+                    }
+                } catch (\Exception $e) { $dateValide = false; }
 
-            // 3. PRÉPARATION DU BATCH
-            $jobs = [];
-            // On capture l'ID et le nom ici pour les passer aux jobs enfants
-            $fileId = $this->attendanceFile->id;
-            $fileName = $this->attendanceFile->filename;
+                if ($dateValide) {
+                    
+                    // GESTION DU NOM
+                    $rawName = $data['student_name'] ?? 'PLANNING_GLOBAL';
+                    $studentName = mb_strtoupper($this->forceUtf8($rawName)); // Tout en MAJ pour éviter doublons
 
-            foreach ($files as $file) {
-                $jobs[] = new AnalyzePageJob($file, $fileId, $fileName);
-            }
+                    // GESTION MODULE / FORMATEUR
+                    $moduleName = $this->forceUtf8($data['module_name'] ?? 'Formation');
+                    $instructorName = $this->forceUtf8($data['instructor_name'] ?? 'Non précisé');
+                    
+                    // GESTION PÉRIODE
+                    $period = strtolower($data['period'] ?? 'morning');
+                    if (!in_array($period, ['morning', 'afternoon'])) $period = 'morning';
 
-            // --- CORRECTION DE L'ERREUR ICI ---
-            // On passe seulement l'ID ($fileId) au callback 'then', c'est plus robuste.
-            Bus::batch($jobs)
-                ->then(function (Batch $batch) use ($fileId) {
-                    // Ce code s'exécute quand TOUS les jobs sont finis avec succès
-                    $file = AttendanceFile::find($fileId);
-                    if ($file) {
+                    // SAUVEGARDE EN BDD
+                    TrainingSlot::updateOrCreate(
+                        [
+                            // Clé unique pour éviter doublons : Même élève, même date, même période
+                            'student_name' => $studentName,
+                            'date' => $data['date'],
+                            'period' => $period,
+                        ],
+                        [
+                            // On met à jour les infos descriptives
+                            'module_name' => $moduleName,
+                            'instructor_name' => $instructorName,
+                            'source_file' => $this->filename,
+                            'is_present' => true, // On met true par défaut car c'est du prévisionnel
+                        ]
+                    );
+                }
+
+                @unlink($this->imagePath);
+                
+                // Progression
+                $file = AttendanceFile::find($this->attendanceFileId);
+                if ($file) {
+                    $file->increment('processed_pages');
+                    if ($file->processed_pages >= $file->total_pages) {
                         $file->update(['status' => 'completed']);
                     }
-                    
-                    // Nettoyage du dossier temp (Optionnel, à décommenter si tu veux)
-                    // $dir = storage_path("app/temp_split_" . $fileId);
-                    // array_map('unlink', glob("$dir/*.*"));
-                    // @rmdir($dir);
-                })
-                ->catch(function (Batch $batch, \Throwable $e) use ($fileId) {
-                    // En cas d'erreur critique dans le batch
-                    Log::error("Erreur dans le batch pour le fichier $fileId : " . $e->getMessage());
-                    $file = AttendanceFile::find($fileId);
-                    if ($file) $file->update(['status' => 'failed']);
-                })
-                ->dispatch();
-
+                }
+            }
         } catch (\Exception $e) {
-            Log::error("Erreur découpage PDF : " . $e->getMessage());
-            $this->attendanceFile->update(['status' => 'failed']);
+            Log::error("Erreur Job Page : " . $e->getMessage());
+            // On ne supprime l'image que si c'est fini, sinon on pourrait vouloir réessayer
+            if (!str_contains($e->getMessage(), 'Rate limit')) {
+                @unlink($this->imagePath);
+            }
+            throw $e; // Pour que Laravel retente le job si c'est une erreur temporaire
         }
     }
 }

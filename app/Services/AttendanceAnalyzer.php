@@ -13,40 +13,36 @@ class AttendanceAnalyzer
         $base64Image = base64_encode($image);
         $dataUri = "data:image/jpeg;base64,{$base64Image}";
 
-        // --- PROMPT "ASPIRATEUR DE PLANNING" ---
+        // --- NOUVEAU PROMPT "PLANNING FIRST" ---
         $prompt = <<<EOT
-        You are analyzing a training schedule/attendance document.
+        ANALYSE CETTE PAGE DE PLANNING DE FORMATION.
         
-        YOUR GOAL: Extract the TRAINING SESSION details.
+        OBJECTIF : Extraire la DATE et le MODULE prévu.
+        Peu importe si la feuille est signée ou non. Peu importe si un nom d'étudiant est présent ou non.
         
-        INSTRUCTIONS:
-        1. **Date & Period**: Find the date (YYYY-MM-DD).
-           - "Matin" (08:30-12:30) = period: "morning"
-           - "Après-midi" (13:30-16:30) = period: "afternoon"
-        2. **Student Name**: 
-           - Extract the MAIN student name listed at the top or in the "Apprenant" box.
-           - IMPORTANT: Normalize name as "LASTNAME Firstname" (e.g., "BOYER Lorenza"). 
-           - Always put the family name first in UPPERCASE.
-           - IF NO STUDENT FOUND: Return "PLANNING_REF".
-        3. **Instructor & Module**: Extract them.
+        RÈGLES STRICTES :
+        1. **DATE (OBLIGATOIRE)** : Trouve la date de la session (Format YYYY-MM-DD).
+        2. **PÉRIODE (OBLIGATOIRE)** : 
+           - Si horaires ~08:30-12:30 ou mention "Matin" -> "morning"
+           - Si horaires ~13:30-16:30 ou mention "Après-midi" -> "afternoon"
+        3. **MODULE** : Le nom du cours/module.
+        4. **INTERVENANT** : Le nom du formateur.
+        5. **ÉTUDIANT** : Le nom du stagiaire en haut de la page. 
+           - SI AUCUN NOM N'EST CLAIREMENT INDIQUÉ : Renvoie "PLANNING_GLOBAL".
         
-        Return JSON only:
+        Renvoie UNIQUEMENT ce JSON (sans markdown) :
         {
-            "student_name": "String",
-            "instructor_name": "String",
-            "module_name": "String",
+            "student_name": "Nom ou PLANNING_GLOBAL",
             "date": "YYYY-MM-DD",
-            "period": "morning" | "afternoon", 
-            "is_signed": boolean
+            "period": "morning" ou "afternoon",
+            "module_name": "Titre du module",
+            "instructor_name": "Nom formateur"
         }
         EOT;
 
         try {
             $response = OpenAI::chat()->create([
-                // --- CHANGEMENT DE MODELE ---
-                // On prend celui qui a 500k TPM (Tokens Per Minute) pour la vitesse
-                'model' => 'chatgpt-4o-latest', 
-                
+                'model' => 'chatgpt-4o-latest', // Le plus robuste
                 'messages' => [
                     [
                         'role' => 'user',
@@ -59,24 +55,24 @@ class AttendanceAnalyzer
                         ],
                     ],
                 ],
-                // --- CORRECTION CRITIQUE ---
-                // On supprime carrément la ligne 'max_tokens' ou 'max_completion_tokens'.
-                // On laisse l'IA gérer la longueur par défaut.
-                // Cela élimine 100% des erreurs de paramètres API.
-                'temperature' => 0.0, 
+                'temperature' => 0.0,
+                // PAS DE PARAMÈTRE MAX_TOKENS ICI pour éviter l'erreur
             ]);
 
             $content = $response->choices[0]->message->content;
             
-            // Nettoyage JSON classique
+            // Nettoyage JSON basique
             $cleaned = str_replace(['```json', '```', "\n"], '', $content);
             $start = strpos($cleaned, '{');
             $end = strrpos($cleaned, '}');
+            
             if ($start !== false && $end !== false) {
                 $cleaned = substr($cleaned, $start, $end - $start + 1);
+                return json_decode(trim($cleaned), true) ?? [];
             }
-
-            return json_decode(trim($cleaned), true) ?? [];
+            
+            // Si pas de JSON trouvé, on renvoie vide
+            return [];
 
         } catch (\Exception $e) {
             Log::error("Erreur OpenAI : " . $e->getMessage());

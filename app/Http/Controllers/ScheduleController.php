@@ -175,10 +175,11 @@ class ScheduleController extends Controller
             // --- NOUVEAU CALCUL ---
             // Matin (08:30 - 12:30) = 4h
             // Après-midi (13:30 - 16:30) = 3h
+            // RÈGLE DE CALCUL DES HEURES
             if ($slot->period === 'morning') {
-                $totalHeuresPrevues += 4;
+                $totalHeuresPrevues += 4; // 08:30 - 12:30
             } elseif ($slot->period === 'afternoon') {
-                $totalHeuresPrevues += 3;
+                $totalHeuresPrevues += 3; // 13:30 - 16:30
             }
         }
 
