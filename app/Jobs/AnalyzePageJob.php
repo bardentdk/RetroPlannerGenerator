@@ -4,7 +4,7 @@ namespace App\Jobs;
 
 use App\Models\AttendanceFile;
 use App\Models\TrainingSlot;
-use App\Services\AttendanceAnalyzer;
+use App\Services\AttendanceAnalyzer; // <--- Import indispensable !
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,9 +18,7 @@ class AnalyzePageJob implements ShouldQueue
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 120;
-    
-    // --- NOUVEAU : On essaie jusqu'à 10 fois avant d'abandonner ---
-    public $tries = 10; 
+    public $tries = 5; // On réessaie 5 fois en cas de pépin
 
     protected $imagePath;
     protected $attendanceFileId;
@@ -33,11 +31,9 @@ class AnalyzePageJob implements ShouldQueue
         $this->filename = $filename;
     }
 
-    // --- NOUVEAU : Stratégie d'attente progressive (en secondes) ---
-    // Si ça plante, on attend 5s, puis 15s, 30s, 60s, 120s...
     public function backoff()
     {
-        return [5, 15, 30, 60, 120, 120, 120];
+        return [5, 15, 30]; // Temps d'attente progressif
     }
 
     public function handle(AttendanceAnalyzer $analyzer)
@@ -46,32 +42,30 @@ class AnalyzePageJob implements ShouldQueue
 
         try {
             if (file_exists($this->imagePath)) {
-                // 1. Analyse par l'IA
+                // 1. Analyse via le Service
                 $data = $analyzer->analyzePage($this->imagePath);
 
-                // 2. Vérification de sécurité : Si l'IA échoue ou renvoie vide
-                if (empty($data)) {
-                    // On ne lance pas d'exception pour ne pas bloquer la queue, on log juste
-                    Log::warning("Page ignorée (Données vides) : " . $this->filename);
+                // 2. Vérification que l'IA a renvoyé quelque chose
+                if (empty($data) || empty($data['date'])) {
+                    Log::warning("Page ignorée (Pas de date ou vide) : " . $this->filename);
                     @unlink($this->imagePath);
-                    return; 
+                    return;
                 }
 
-                // 3. Vérification de la DATE (C'est ici que ça plantait avant !)
-                // On vérifie si la date est valide et n'est pas "Unknown"
-                $dateString = $data['date'] ?? null;
-                $isValidDate = $dateString && strtotime($dateString) !== false;
+                // 3. Validation de la date pour éviter le crash "Unknown"
+                $dateValide = false;
+                try {
+                    if (strtotime($data['date']) !== false) {
+                        $dateValide = true;
+                    }
+                } catch (\Exception $e) { $dateValide = false; }
 
-                if ($isValidDate) {
+                if ($dateValide) {
                     
-                    $rawName = $data['student_name'] ?? 'PLANNING_REF';
-                    if (strtoupper($rawName) === 'IGNORE') $rawName = 'PLANNING_REF';
-
+                    // Nettoyage et enregistrement
+                    $rawName = $data['student_name'] ?? 'PLANNING_GLOBAL';
                     $studentName = mb_strtoupper($this->forceUtf8($rawName));
 
-                    if ($studentName === 'PLANNING_REF') {
-                         // On peut laisser PLANNING_REF ou le gérer à part
-                    }
                     $moduleName = $this->forceUtf8($data['module_name'] ?? 'Formation');
                     $instructorName = $this->forceUtf8($data['instructor_name'] ?? 'Non précisé');
                     
@@ -81,24 +75,24 @@ class AnalyzePageJob implements ShouldQueue
                     TrainingSlot::updateOrCreate(
                         [
                             'student_name' => $studentName,
-                            'date' => $data['date'], // On utilise la date validée
+                            'date' => $data['date'],
                             'period' => $period,
                         ],
                         [
-                            'is_present' => $data['is_signed'] ?? false,
                             'module_name' => $moduleName,
                             'instructor_name' => $instructorName,
                             'source_file' => $this->filename,
+                            'is_present' => true, 
                         ]
                     );
                 } else {
-                    Log::info("Page ignorée (Date invalide ou inconnue) : " . $this->filename);
+                    Log::info("Date invalide ignorée ({$data['date']}) sur fichier : " . $this->filename);
                 }
-                
-                // Nettoyage
+
+                // Nettoyage image
                 @unlink($this->imagePath);
                 
-                // Mise à jour de la progression
+                // Progression du fichier parent
                 $file = AttendanceFile::find($this->attendanceFileId);
                 if ($file) {
                     $file->increment('processed_pages');
@@ -108,13 +102,13 @@ class AnalyzePageJob implements ShouldQueue
                 }
             }
         } catch (\Exception $e) {
-            // En cas de Rate Limit, on relance (le backoff gérera l'attente)
-            if (str_contains($e->getMessage(), 'Rate limit')) {
-                throw $e;
+            Log::error("Erreur Job : " . $e->getMessage());
+            // Si c'est une erreur temporaire (réseau/IA), on laisse Laravel réessayer (throw)
+            // Sinon on supprime l'image pour ne pas bloquer
+            if (!str_contains($e->getMessage(), 'Rate limit')) {
+                @unlink($this->imagePath);
             }
-            // Pour les autres erreurs, on log mais on ne fait pas planter tout le process
-            Log::error("Erreur page (Job supprimé) : " . $e->getMessage());
-            @unlink($this->imagePath);
+            throw $e; 
         }
     }
 
