@@ -56,7 +56,7 @@ class AttendanceAnalyzer
                         ],
                     ],
                 ],
-                'temperature' => 0.0,
+                'temperature' => 1,
                 // 'max_tokens' => 400,
                 'max_completion_tokens' => 400,
             ]);
