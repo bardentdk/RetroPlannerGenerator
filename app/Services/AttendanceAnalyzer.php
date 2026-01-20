@@ -40,7 +40,10 @@ class AttendanceAnalyzer
             EOT;
 
             $response = OpenAI::chat()->create([
-                'model' => 'gpt-5-mini',
+                // --- CHANGEMENT MODELE ---
+                'model' => 'gpt-4o', // Le plus rapide et performant pour la vision
+                // 'model' => 'gpt-4o-mini', // Alternative : Encore plus rapide, un peu moins précis
+                
                 'messages' => [
                     [
                         'role' => 'user',
@@ -48,18 +51,19 @@ class AttendanceAnalyzer
                             ['type' => 'text', 'text' => $prompt],
                             ['type' => 'image_url', 'image_url' => [
                                 'url' => $dataUri,
-                                'detail' => 'high'
+                                'detail' => 'high' // On garde 'high' pour bien lire les petits textes
                             ]],
                         ],
                     ],
                 ],
-                // 'temperature' => 1,
-                // AUCUN paramètre max_tokens ici pour éviter les bugs
+                // On remet la température à 0 car GPT-4o le supporte très bien
+                // et ça évite qu'il "invente" des données.
+                'temperature' => 0.0, 
             ]);
 
             $content = $response->choices[0]->message->content;
             
-            // Nettoyage du JSON
+            // Nettoyage JSON
             $cleaned = str_replace(['```json', '```', "\n"], '', $content);
             $start = strpos($cleaned, '{');
             $end = strrpos($cleaned, '}');
