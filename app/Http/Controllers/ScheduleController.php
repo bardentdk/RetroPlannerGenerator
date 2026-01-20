@@ -203,7 +203,7 @@ class ScheduleController extends Controller
         $filename = $this->forceUtf8($file->getClientOriginalName());
         $path = $file->store('uploads');
         $attendanceFile = AttendanceFile::create(['filename' => $filename, 'path' => $path, 'status' => 'pending']);
-        ProcessAttendancePdf::dispatch($attendanceFile);
+        ProcessAttendancePdf::dispatch($attendanceFile->id);
         return redirect()->route('home')->with('success', "Upload réussi.");
     }
 

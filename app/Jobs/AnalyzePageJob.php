@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\AttendanceFile;
 use App\Models\TrainingSlot;
+// On garde l'import pour la forme, mais on va l'instancier manuellement
+use App\Services\AttendanceAnalyzer; 
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,42 +32,50 @@ class AnalyzePageJob implements ShouldQueue
         $this->filename = $filename;
     }
 
-    // --- ICI : PAS D'ARGUMENT DANS LES PARENTHÈSES ---
+    // PAS d'argument dans la parenthèse pour éviter le bug "Target class does not exist"
     public function handle() 
     {
         if ($this->batch() && $this->batch()->cancelled()) return;
 
-        // On instancie MANUELLEMENT pour contourner le bug d'injection
-        // Le backslash \ au début est important pour forcer le chemin absolu
+        // --- FIX BLOCAGE 0% : Instanciation manuelle ---
         $analyzer = new \App\Services\AttendanceAnalyzer(); 
 
         try {
             if (file_exists($this->imagePath)) {
                 $data = $analyzer->analyzePage($this->imagePath);
 
-                // --- SÉCURITÉ CONTRE LES PAGES VIDES ---
+                // Sécurité données vides
                 if (empty($data) || empty($data['date'])) {
-                    Log::warning("Page ignorée (Pas de date) : " . $this->filename);
+                    Log::warning("Page ignorée (Vide/Sans date) : " . $this->filename);
                     @unlink($this->imagePath);
                     return;
                 }
 
-                // --- SÉCURITÉ DATE ---
+                // Validation Date
                 $dateValide = false;
                 try {
                     if (strtotime($data['date']) !== false) $dateValide = true;
                 } catch (\Exception $e) {}
 
                 if ($dateValide) {
-                    $rawName = $data['student_name'] ?? 'PLANNING_GLOBAL';
-                    $studentName = mb_strtoupper($this->forceUtf8($rawName));
+                    $rawName = $data['student_name'] ?? 'PLANNING_REF';
+                    
+                    // --- FIX DOUBLONS (Capture 1) ---
+                    // On met tout en majuscules et on nettoie les espaces
+                    $cleanName = mb_strtoupper(trim($this->forceUtf8($rawName)));
+                    
+                    // Si l'IA a mis "IGNORE" ou vide, on normalise
+                    if ($cleanName === 'IGNORE' || $cleanName === '') {
+                        $cleanName = 'PLANNING_REF';
+                    }
 
                     $period = strtolower($data['period'] ?? 'morning');
                     if (!in_array($period, ['morning', 'afternoon'])) $period = 'morning';
 
+                    // Sauvegarde
                     TrainingSlot::updateOrCreate(
                         [
-                            'student_name' => $studentName,
+                            'student_name' => $cleanName,
                             'date' => $data['date'],
                             'period' => $period,
                         ],
@@ -80,6 +90,7 @@ class AnalyzePageJob implements ShouldQueue
 
                 @unlink($this->imagePath);
                 
+                // Mise à jour de la barre de progression
                 $file = AttendanceFile::find($this->attendanceFileId);
                 if ($file) {
                     $file->increment('processed_pages');
